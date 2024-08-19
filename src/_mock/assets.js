@@ -44,6 +44,7 @@ const DASHBOARD_PERMISSION = {
   type: PermissionType.CATALOGUE,
   route: 'dashboard',
   order: 1,
+  newFeature: true,
   children: [
     {
       id: '8426999229400979',
@@ -422,7 +423,6 @@ const OTHERS_PERMISSION = [
     icon: 'ic_label',
     type: PermissionType.MENU,
     route: 'label',
-    newFeature: true,
     component: '/sys/others/blank.tsx',
   },
   {
