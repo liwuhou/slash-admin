@@ -1,16 +1,18 @@
-import { useState } from 'react'
-import { message, Flex } from 'antd'
-import UploadBtn from './upload-btn'
-import Result, { ResultStatus } from './result'
-import type { WorkBook, WorkSheet } from 'xlsx'
+import { useState } from 'react';
+import { message, Flex } from 'antd';
+import UploadBtn, { FileType } from '@/components/upload-btn';
+import Result, { ResultStatus } from '@/components/result';
+import type { WorkBook, WorkSheet } from 'xlsx';
 
-type OriginData = Map<string, MachinRoom>
-type HandleData = Map<string, MachinRoom>
+type OriginData = Map<string, MachinRoom>;
+type HandleData = Map<string, MachinRoom>;
 
-type DiffEquipmentData = (h: OriginData, o: HandleData) => { result: ResultStatus; description: JSX.Element[] }
-type AnalyzeWorkBook = (w: WorkBook) => ReturnType<DiffEquipmentData>
-type HandleUploadFile = (w: WorkBook) => void
-type HandleCheckFile = () => boolean
+type DiffEquipmentData = (
+  h: OriginData,
+  o: HandleData,
+) => { result: ResultStatus; description: JSX.Element[] };
+type AnalyzeWorkBook = (h: HandleData, o: OriginData) => ReturnType<DiffEquipmentData>;
+type HandleCheckFile = () => boolean;
 
 // 分光器端口状态
 enum PortStatus {
@@ -20,24 +22,25 @@ enum PortStatus {
 
 // 分光器端口
 interface Port {
-  name: string
-  status: PortStatus
-  next: string
-  belongTo: Splitter
+  name: string;
+  status: PortStatus;
+  next: string;
+  belongTo: Splitter;
+  line: number;
 }
 
 // 分光器
 interface Splitter {
-  name: string
-  belongTo: MachinRoom
-  ports: Map<string, Port>
+  name: string;
+  belongTo: MachinRoom;
+  ports: Map<string, Port>;
 }
 
 // 机房
 interface MachinRoom {
-  name: string
-  major?: string
-  splitters: Map<string, Splitter>
+  name: string;
+  major?: string;
+  splitters: Map<string, Splitter>;
 }
 
 // const formatEquipmentSheetData = (s: WorkSheet) => {
@@ -52,26 +55,26 @@ interface MachinRoom {
 const formatPortSheetData = (
   s: WorkSheet,
   columns: [string, string, string, string, string],
-  initRow = 3
+  initRow = 3,
 ): Map<string, MachinRoom> => {
-  const [a, b, c, d, e] = columns
-  const map = new Map<string, MachinRoom>()
-  const maxLength = parseInt(s['!ref']?.split(':')?.[1]?.replace?.(/[a-z]/gi, '') ?? '0', 10)
+  const [a, b, c, d, e] = columns;
+  const map = new Map<string, MachinRoom>();
+  const maxLength = parseInt(s['!ref']?.split(':')?.[1]?.replace?.(/[a-z]/gi, '') ?? '0', 10);
 
-  if (maxLength <= initRow) return map
+  if (maxLength <= initRow) return map;
 
   for (let i = initRow; i <= maxLength; i++) {
-    const cell = `${a}${i}`
-    const roomName = Reflect.get(s, cell)?.v ?? ''
+    const cell = `${a}${i}`;
+    const roomName = Reflect.get(s, cell)?.v ?? '';
 
     if (roomName) {
       if (!map.has(roomName)) {
-        map.set(roomName, { name: roomName, splitters: new Map() as MachinRoom['splitters'] })
+        map.set(roomName, { name: roomName, splitters: new Map() as MachinRoom['splitters'] });
       }
-      const machinRoom = map.get(roomName)!
-      const { splitters } = machinRoom
+      const machinRoom = map.get(roomName)!;
+      const { splitters } = machinRoom;
 
-      const splitterName = Reflect.get(s, `${b}${i}`)?.v ?? ''
+      const splitterName = Reflect.get(s, `${b}${i}`)?.v ?? '';
 
       if (splitterName) {
         if (!splitters.has(splitterName)) {
@@ -79,58 +82,67 @@ const formatPortSheetData = (
             name: splitterName,
             belongTo: machinRoom,
             ports: new Map() as Splitter['ports'],
-          })
+          });
         }
-        const splitter = splitters.get(splitterName)!
-        const { ports } = splitter
+        const splitter = splitters.get(splitterName)!;
+        const { ports } = splitter;
 
-        const portName = Reflect.get(s, `${c}${i}`)?.v ?? ''
+        const portName = Reflect.get(s, `${c}${i}`)?.v ?? '';
 
         if (portName) {
           if (!ports.has(portName)) {
-            const next = Reflect.get(s, `${d}${i}`)?.v?.trim() || ''
-            const status = Reflect.get(s, `${e}${i}`)?.v?.trim() === '空闲' ? PortStatus.OFF : PortStatus.ON
-            ports.set(portName, { name: portName, belongTo: splitter, status, next })
+            const line = i;
+            const next = Reflect.get(s, `${d}${i}`)?.v?.trim() || '';
+            const status =
+              Reflect.get(s, `${e}${i}`)?.v?.trim() === '空闲' ? PortStatus.OFF : PortStatus.ON;
+            ports.set(portName, { name: portName, belongTo: splitter, status, next, line });
           }
         }
       }
     }
   }
 
-  return map
-}
+  return map;
+};
 
-const countSplitterPorts = (handleSplitters: Map<string, Splitter>, originSplitters: Map<string, Splitter>) => {
-  let [on, off, all, right, wrong] = [0, 0, 0, 0, 0]
+const countSplitterPorts = (
+  handleSplitters: Map<string, Splitter>,
+  originSplitters: Map<string, Splitter>,
+) => {
+  let [on, off, all, right, wrong, error] = [0, 0, 0, 0, 0, [] as string[]];
 
   for (const [key, handleSplitter] of handleSplitters) {
-    all += handleSplitter.ports.size
-    const originSplitter = originSplitters.get(key)
+    all += handleSplitter.ports.size;
+    const originSplitter = originSplitters.get(key);
     if (handleSplitter.name !== originSplitter?.name) {
-      wrong += handleSplitter.ports.size
-      continue
+      wrong += handleSplitter.ports.size;
+      continue;
     }
 
     for (const [key, handlePort] of handleSplitter.ports) {
-      const originPort = originSplitter.ports.get(key)
+      const originPort = originSplitter.ports.get(key);
+      const currentLine = handlePort.line;
       if (handlePort.status === PortStatus.ON) {
-        on++
+        on++;
       } else {
-        off++
+        off++;
       }
       if (handlePort.name !== originPort?.name) {
-        wrong++
-        continue
+        wrong++;
+        error.push(`第 ${currentLine} 行，端口名称错误`);
+        continue;
       }
       if (handlePort.status !== originPort?.status) {
-        wrong++
-        continue
+        wrong++;
+        error.push(`第 ${currentLine} 行，端口占用状态错误`);
+        continue;
       }
       if (handlePort.next !== originPort?.next) {
-        wrong++
-        continue
+        wrong++;
+        error.push(`第 ${currentLine} 行，端口下一跳设备错误`);
+        continue;
       }
-      right++
+      right++;
     }
   }
 
@@ -140,34 +152,38 @@ const countSplitterPorts = (handleSplitters: Map<string, Splitter>, originSplitt
     all,
     right,
     wrong,
-  }
-}
+    error,
+  };
+};
 
 const diffPortData: DiffEquipmentData = (handleData, originData) => {
-  let result = ResultStatus.SUCCESS
-  let description = []
+  let result = ResultStatus.SUCCESS;
+  const description = [];
 
   for (const [key, handleMachineRoom] of handleData) {
-    const originMachineRoom = originData.get(key)
+    const originMachineRoom = originData.get(key);
     if (!originMachineRoom) {
       description.push(
         <div>
           <b>{handleMachineRoom.name}</b>录入有误！
-        </div>
-      )
-      break
+        </div>,
+      );
+      break;
     }
 
-    const machiRoomName = handleMachineRoom.name
-    const splitterCount = handleMachineRoom.splitters.size
-    const { on, off, all, right, wrong } = countSplitterPorts(handleMachineRoom.splitters, originMachineRoom.splitters)
+    const machiRoomName = handleMachineRoom.name;
+    const splitterCount = handleMachineRoom.splitters.size;
+    const { on, off, all, right, wrong, error } = countSplitterPorts(
+      handleMachineRoom.splitters,
+      originMachineRoom.splitters,
+    );
     // FIXME: 多个机房时要综合一下
     if (right === all) {
-      result = ResultStatus.PERFECT
+      result = ResultStatus.PERFECT;
     } else if (wrong > right) {
-      result = ResultStatus.ERROR
+      result = ResultStatus.ERROR;
     } else {
-      result = ResultStatus.SUCCESS
+      result = ResultStatus.SUCCESS;
     }
 
     description.push(
@@ -177,15 +193,16 @@ const diffPortData: DiffEquipmentData = (handleData, originData) => {
         <div>
           匹配系统录入数据，其中录入准确<b>{right}</b>个端口，录入有误<b>{wrong}</b>个端口。
         </div>
-      </div>
-    )
+        {error.length > 0 && error.map((e) => <div>{e}</div>)}
+      </div>,
+    );
   }
 
   return {
     description,
     result,
-  }
-}
+  };
+};
 
 /**
  *测试表格-设备端口：
@@ -219,78 +236,86 @@ const diffPortData: DiffEquipmentData = (handleData, originData) => {
     其中在用XX个端口（G列统计）、空闲端口XX个（G列）；
     匹配系统录入数据，其中录入准确XX个端口（第三点的匹配结果），录入有误XX个端口（第三点的匹配结果）。
  */
-const analyzePortData: AnalyzeWorkBook = (workBook) => {
-  const [handleKey, originKey] = workBook.SheetNames
-  const handleSheet = workBook.Sheets[handleKey]
-  const originSheet = workBook.Sheets[originKey]
+const analyzePortData: AnalyzeWorkBook = (
+  handleData: Map<string, MachinRoom>,
+  originData: Map<string, MachinRoom>,
+) => {
+  return diffPortData(handleData, originData);
+};
 
-  const handleData = formatPortSheetData(handleSheet, ['C', 'E', 'F', 'H', 'G'])
-  const originData = formatPortSheetData(originSheet, ['A', 'B', 'C', 'E', 'N'], 2)
-
-  return diffPortData(handleData, originData)
-}
+const formatFileData = (type: FileType, workBook: WorkBook) => {
+  const [key] = workBook.SheetNames;
+  const sheet = workBook.Sheets[key];
+  return type === FileType.HANDLE
+    ? formatPortSheetData(sheet, ['C', 'E', 'F', 'H', 'G'])
+    : formatPortSheetData(sheet, ['A', 'B', 'C', 'E', 'N'], 2);
+};
 
 function App() {
-  const [handleData, setHandleData] = useState<HandleData|null>(null)
-  const [originData, setOriginData] = useState<OriginData|null>(null)
-  const [description, setDescription] = useState<JSX.Element[]>([])
-  const [result, setResult] = useState<ResultStatus>(ResultStatus.PERFECT)
-
-  const handleUploadFile: HandleUploadFile = (w) => {
-    // const { description, result } = mode === FunctionMode.port ? analyzePortData(w) : analyzeEquipmentData(w)
-    const { description, result } = analyzePortData(w)
-    setDescription(description)
-    setResult(result)
-  }
+  const [handleData, setHandleData] = useState<HandleData | null>(null);
+  const [originData, setOriginData] = useState<OriginData | null>(null);
+  const [description, setDescription] = useState<JSX.Element[]>([]);
+  const [result, setResult] = useState<ResultStatus>(ResultStatus.PERFECT);
 
   const handleReset = () => {
-    setHandleData(null)
-    setOriginData(null)
-    setDescription([])
-    setResult(ResultStatus.ERROR)
-  }
+    setHandleData(null);
+    setOriginData(null);
+    setDescription([]);
+    setResult(ResultStatus.ERROR);
+  };
 
-  const handleCheckPortFile: HandleCheckFile = () => {
-    // const { Sheets, SheetNames } = w
-    // const [handleKey, originKey] = SheetNames
-    // const handleSheet = Sheets[handleKey]
-    // const originSheet = Sheets[originKey]
+  const handleCheckFile: HandleCheckFile = () => {
+    if (!handleData) {
+      message.error('请上传“原始台账文件”');
+      return false;
+    }
+    if (!originData) {
+      message.error('请上传“资源系统导出文件”');
+      return false;
+    }
 
-    // if (!handleSheet || !originSheet) {
-    //   message.error('上传的数据表数据格式有误，请检查！')
-    //   console.error('必须要有原端口和导出表两个 Sheet!')
-    //   return false
-    // } else if (!handleSheet['!ref']) {
-    //   message.error('上传的原端口数据表数据异常，请检查')
-    //   console.error('上传了空表')
-    //   return false
-    // } else if (!originSheet['!ref']) {
-    //   message.error('上传的导出表数据表数据异常，请检查')
-    //   console.error('上传了空表')
-    //   return false
-    // }
-    // message.success('上传成功')
-    // return true
-    return true
-  }
+    if (!handleData?.size) {
+      message.error('上传的原端口数据表数据异常，请检查');
+      console.error('上传了空表');
+      return false;
+    }
+
+    return true;
+  };
 
   const handleConfirm = () => {
+    if (!handleCheckFile()) return;
 
-  }
+    const { description, result } = analyzePortData(handleData!, originData!);
+    setDescription(description);
+    setResult(result);
+  };
+
+  const handleFileUpload = (type: FileType, workbook: WorkBook) => {
+    const data = formatFileData(type, workbook);
+    if (type === FileType.HANDLE) {
+      setHandleData(data);
+    } else {
+      setOriginData(data);
+    }
+  };
 
   return (
     <>
       <Flex gap="middle">
         <UploadBtn
-          onUpload={handleUploadFile}
-          onCheck={handleCheckPortFile}
+          onUpload={handleFileUpload}
           onReset={handleReset}
           onConfirm={handleConfirm}
+          label={[
+            { label: '原始台账文件', link: '' },
+            { label: '资源系统导出文件', link: '' },
+          ]}
         />
         <Result style={{ width: '100%' }} result={result} description={description} />
       </Flex>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
