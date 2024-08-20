@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { message, Flex } from 'antd'
-import UploadBtn, { FunctionMode } from './upload-btn'
+import UploadBtn from './upload-btn'
 import Result, { ResultStatus } from './result'
 import type { WorkBook, WorkSheet } from 'xlsx'
 
@@ -10,7 +10,7 @@ type HandleData = Map<string, MachinRoom>
 type DiffEquipmentData = (h: OriginData, o: HandleData) => { result: ResultStatus; description: JSX.Element[] }
 type AnalyzeWorkBook = (w: WorkBook) => ReturnType<DiffEquipmentData>
 type HandleUploadFile = (w: WorkBook) => void
-type HandleCheckFile = (w: WorkBook) => boolean
+type HandleCheckFile = () => boolean
 
 // 分光器端口状态
 enum PortStatus {
@@ -231,9 +231,10 @@ const analyzePortData: AnalyzeWorkBook = (workBook) => {
 }
 
 function App() {
+  const [handleData, setHandleData] = useState<HandleData|null>(null)
+  const [originData, setOriginData] = useState<OriginData|null>(null)
   const [description, setDescription] = useState<JSX.Element[]>([])
   const [result, setResult] = useState<ResultStatus>(ResultStatus.PERFECT)
-  const [mode, setMode] = useState<FunctionMode>(FunctionMode.port)
 
   const handleUploadFile: HandleUploadFile = (w) => {
     // const { description, result } = mode === FunctionMode.port ? analyzePortData(w) : analyzeEquipmentData(w)
@@ -243,42 +244,48 @@ function App() {
   }
 
   const handleReset = () => {
+    setHandleData(null)
+    setOriginData(null)
     setDescription([])
     setResult(ResultStatus.ERROR)
   }
 
-  const handleCheckPortFile: HandleCheckFile = (w) => {
-    const { Sheets, SheetNames } = w
-    const [handleKey, originKey] = SheetNames
-    const handleSheet = Sheets[handleKey]
-    const originSheet = Sheets[originKey]
+  const handleCheckPortFile: HandleCheckFile = () => {
+    // const { Sheets, SheetNames } = w
+    // const [handleKey, originKey] = SheetNames
+    // const handleSheet = Sheets[handleKey]
+    // const originSheet = Sheets[originKey]
 
-    if (!handleSheet || !originSheet) {
-      message.error('上传的数据表数据格式有误，请检查！')
-      console.error('必须要有原端口和导出表两个 Sheet!')
-      return false
-    } else if (!handleSheet['!ref']) {
-      message.error('上传的原端口数据表数据异常，请检查')
-      console.error('上传了空表')
-      return false
-    } else if (!originSheet['!ref']) {
-      message.error('上传的导出表数据表数据异常，请检查')
-      console.error('上传了空表')
-      return false
-    }
-    message.success('上传成功')
+    // if (!handleSheet || !originSheet) {
+    //   message.error('上传的数据表数据格式有误，请检查！')
+    //   console.error('必须要有原端口和导出表两个 Sheet!')
+    //   return false
+    // } else if (!handleSheet['!ref']) {
+    //   message.error('上传的原端口数据表数据异常，请检查')
+    //   console.error('上传了空表')
+    //   return false
+    // } else if (!originSheet['!ref']) {
+    //   message.error('上传的导出表数据表数据异常，请检查')
+    //   console.error('上传了空表')
+    //   return false
+    // }
+    // message.success('上传成功')
+    // return true
     return true
+  }
+
+  const handleConfirm = () => {
+
   }
 
   return (
     <>
       <Flex gap="middle">
         <UploadBtn
-          type={mode}
-          onModeChange={setMode}
           onUpload={handleUploadFile}
           onCheck={handleCheckPortFile}
           onReset={handleReset}
+          onConfirm={handleConfirm}
         />
         <Result style={{ width: '100%' }} result={result} description={description} />
       </Flex>

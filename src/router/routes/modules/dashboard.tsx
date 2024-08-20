@@ -7,7 +7,8 @@ import { CircleLoading } from '@/components/loading';
 import { AppRouteObject } from '#/router';
 
 const HomePage = lazy(() => import(`@/pages/dashboard/workbench`));
-const Analysis = lazy(() => import('@/pages/dashboard/analysis'));
+const EquipmentAnalysis = lazy(() => import('@/pages/dashboard/equipment_analysis'));
+const PortAnalysis = lazy(() => import('@/pages/dashboard/port_analysis'));
 
 const dashboard: AppRouteObject = {
   order: 1,
@@ -33,9 +34,14 @@ const dashboard: AppRouteObject = {
       meta: { label: 'sys.menu.workbench', key: '/dashboard/workbench' },
     },
     {
-      path: 'analysis',
-      element: <Analysis />,
-      meta: { label: 'sys.menu.analysis', key: '/dashboard/analysis' },
+      path: 'equipment_analysis',
+      element: <EquipmentAnalysis />,
+      meta: { label: 'sys.menu.equipmentAnalysis', key: '/dashboard/equipment_analysis' },
+    },
+    {
+      path: 'port_analysis',
+      element: <PortAnalysis />,
+      meta: { label: 'sys.menu.portAnalysis', key: '/dashboard/port_analysis' },
     },
   ],
 };

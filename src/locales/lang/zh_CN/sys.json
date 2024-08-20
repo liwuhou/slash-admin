@@ -84,7 +84,9 @@
     "menu": {
       "dashboard": "仪表",
       "workbench": "工作台",
-      "analysis": "分析",
+      "analysis": "test",
+      "portAnalysis": "端口分析",
+      "equipmentAnalysis": "设备分析",
       "management": "管理",
       "user": {
         "index": "用户",

@@ -85,7 +85,8 @@
     "menu": {
       "dashboard": "Dashboard",
       "workbench": "Workbench",
-      "analysis": "Analysis",
+      "portAnalysis": "Port Analysis",
+      "equipmentAnalysis": "Equipment Analysis",
       "management": "Management",
       "user": {
         "index": "User",

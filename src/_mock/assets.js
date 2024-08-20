@@ -58,12 +58,21 @@ const DASHBOARD_PERMISSION = {
     {
       id: '9710971640510357',
       parentId: '9100714781927703',
-      label: 'sys.menu.analysis',
-      name: 'Analysis',
+      label: 'sys.menu.portAnalysis',
+      name: 'PortAnalysis',
       type: PermissionType.MENU,
-      route: 'analysis',
-      component: '/dashboard/analysis/index.tsx',
+      route: 'port_analysis',
+      component: '/dashboard/port_analysis/index.tsx',
     },
+    {
+      id: '9710971640510358',
+      parentId: '9100714781927703',
+      label: 'sys.menu.equipmentAnalysis',
+      name: 'EquipmentAnalysis',
+      type: PermissionType.MENU,
+      route: 'equipment_analysis',
+      component: '/dashboard/equipment_analysis/index.tsx',
+    }
   ],
 };
 const MANAGEMENT_PERMISSION = {
