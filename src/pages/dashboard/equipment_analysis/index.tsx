@@ -37,16 +37,16 @@ interface Major {
 }
 
 // 机房
-// interface MachinRoom {
-//   name: string;
-//   majors?: Map<string, Major>;
-// }
-
 interface MachinRoom {
   name: string;
-  splitters: Map<string, Splitter>
-  majors?: Set<string>
+  majors: Map<string, Major>;
 }
+
+// interface MachinRoom {
+//   name: string;
+//   splitters: Map<string, Splitter>
+//   majors?: Set<string>
+// }
 
 const formathandleSheetData = (s: WorkSheet): Map<string, MachinRoom> => {
   const map = new Map<string, MachinRoom>();
@@ -62,25 +62,24 @@ const formathandleSheetData = (s: WorkSheet): Map<string, MachinRoom> => {
       if (!map.has(roomName)) {
         map.set(roomName, {
           name: roomName,
-          splitters: new Map() as Major['splitters'],
-          majors: new Set<string>(),
+          majors: new Map<string, Major>(),
         });
       }
       const machinRoom = map.get(roomName)!;
       const majorName = Reflect.get(s, `B${i}`)?.v ?? '';
-      machinRoom.majors?.add(majorName);
-      // const { majors } = machinRoom;
+      const { majors } = machinRoom;
 
-      // if (majorName) {
-      //   if (!majors?.has(majorName)) {
-      //     majors.set(majorName, { name: majorName, splitters: new Map() as Major['splitters'] });
-      //   }
-      // }
+      if (majorName) {
+        if (!majors?.has(majorName)) {
+          majors.set(majorName, { name: majorName, splitters: new Map() as Major['splitters'] });
+        }
+      }
 
-      // const major = majors.get(majorName)!;
-      const { splitters } = machinRoom;
+      const major = majors.get(majorName)!;
+      const { splitters } = major;
 
-      const splitterName = Reflect.get(s, `J${i}`)?.v ?? '';
+      const splitterBox = Reflect.get(s, `J${i}`)?.v?.split('/');
+      const splitterName = splitterBox[splitterBox.length - 1]
 
       if (splitterName) {
         if (!splitters.has(splitterName)) {
@@ -118,10 +117,13 @@ const formatOriginSheetData = (s: WorkSheet): Map<string, MachinRoom> => {
   for (let i = 2; i < maxLength; i++) {
     const [roomName, _, splitterName] = (Reflect.get(s, `A${i}`)?.v ?? '').split('/');
     if (!map.has(roomName)) {
-      map.set(roomName, { name: roomName, splitters: new Map() as MachinRoom['splitters'] });
+      const majors = new Map();
+      majors.set('x', { name: 'x', splitters: new Map()});
+      map.set(roomName, { name: roomName, majors });
     }
     const machinRoom = map.get(roomName)!;
-    const { splitters } = machinRoom;
+    const { majors } = machinRoom!;
+    const  { splitters }  = majors.get('x')!;
 
     if (!splitters.has(splitterName)) {
       splitters.set(splitterName, {
@@ -188,8 +190,6 @@ const countSplitterPorts = (
 };
 
 const diffPortData: DiffEquipmentData = (handleData, originData) => {
-  console.log('🤔 ~ handleData:', handleData)
-  console.log('🤔 ~ originData:', originData)
   let result = ResultStatus.SUCCESS;
   const description = [];
 
@@ -205,30 +205,34 @@ const diffPortData: DiffEquipmentData = (handleData, originData) => {
     }
 
     const machiRoomName = handleMachineRoom.name;
-    const splitterCount = handleMachineRoom.splitters.size;
-    const { all, right, wrong, error } = countSplitterPorts(
-      handleMachineRoom.splitters,
-      originMachineRoom.splitters,
-    );
-    // FIXME: 多个机房时要综合一下
-    if (right === all) {
-      result = ResultStatus.PERFECT;
-    } else if (wrong > right) {
-      result = ResultStatus.ERROR;
-    } else {
-      result = ResultStatus.SUCCESS;
-    }
+    const { majors } = handleMachineRoom;
+    for (const [_, handleMajor] of majors) {
+      const originMajor = originMachineRoom.majors.get('x')!
+      const majorCount = handleMajor.splitters.size;
+      const majorName = handleMajor.name
+      const { all, right, wrong, error } = countSplitterPorts(
+        handleMajor.splitters,
+        originMajor.splitters,
+      );
+      // FIXME: 多个机房时要综合一下
+      if (right === all) {
+        result = ResultStatus.PERFECT;
+      } else if (wrong > right) {
+        result = ResultStatus.ERROR;
+      } else {
+        result = ResultStatus.SUCCESS;
+      }
 
-    description.push(
-      <div>
-        <b>{machiRoomName}</b>合计{splitterCount}台分光器，合计
-        <b>{handleMachineRoom.majors?.size}</b>条链路
+      description.push(
         <div>
-          匹配系统录入数据，其中录入准确<b>{right}</b>个端口，录入有误<b>{wrong}</b>个端口。
-        </div>
-        {error.length > 0 && error.map((e) => <div>{e}</div>)}
-      </div>,
-    );
+          <b>{machiRoomName}</b>{majorName}合计<b>{majorCount}</b>条链路
+          <div>
+            匹配系统录入数据，其中录入准确<b>{right}</b>个链路，录入有误<b>{wrong}</b>个链路。
+          </div>
+          {error.length > 0 && error.map((e) => <div>{e}</div>)}
+        </div>,
+      );
+    }
   }
 
   return {
@@ -302,6 +306,7 @@ function App() {
 
   const handleFileUpload = (type: FileType, workbook: WorkBook) => {
     const data = formatFileData(type, workbook);
+    console.log('🤔 ~ handleFileUpload ~ data:', data)
     if (type === FileType.HANDLE) {
       setHandleData(data);
     } else {
